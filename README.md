@@ -1,8 +1,11 @@
 # esp32-lilygo-t-display-q224
 
-- https://github.com/Xinyuan-LilyGO/T-Display-S3?tab=readme-ov-file
 - https://www.lilygo.cc/products/lilygo%C2%AE-ttgo-t-display-1-14-inch-lcd-esp32-control-board?variant=42159376433333
   - factory firmware scans for wifi SSIDs and monitors voltage
+- https://github.com/Xinyuan-LilyGO/TTGO-T-Display
+  - S3: https://github.com/Xinyuan-LilyGO/T-Display-S3?tab=readme-ov-file
+- https://f6czv.fr/en/documentation-on-esp32-and-the-ttgo-t-display
+-
 
 # usage
 
