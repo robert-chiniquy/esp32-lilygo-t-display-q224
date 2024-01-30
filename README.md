@@ -12,8 +12,8 @@
 ```sh
 . ~/export-esp.sh
 cargo test
+# or cargo run --release
 # or cargo build
-# or cargo run
 ```
 
 ## dump firmware
