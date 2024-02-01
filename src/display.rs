@@ -3,6 +3,7 @@ use super::*;
 use display_interface_spi::SPIInterface;
 use embedded_graphics;
 
+// use embedded_graphics::primitives::Rectangle;
 use esp_idf_hal;
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::AnyIOPin;
@@ -35,12 +36,12 @@ impl Default for Theme {
     fn default() -> Self {
         Self {
             // ?
-            red: embedded_graphics::pixelcolor::Rgb565::new(0xd5, 0x04, 0x58),
-            green: embedded_graphics::pixelcolor::Rgb565::new(0x00, 0xf3, 0xd7),
-            yellow: embedded_graphics::pixelcolor::Rgb565::new(0xfe, 0xfd, 0xc2),
-            blue: embedded_graphics::pixelcolor::Rgb565::new(0xa5, 0xd5, 0xfe),
-            magenta: embedded_graphics::pixelcolor::Rgb565::new(0x69, 0x07, 0x59),
-            cyan: embedded_graphics::pixelcolor::Rgb565::new(0x02, 0xc3, 0xfc),
+            red: embedded_graphics::pixelcolor::Rgb565::new(0xd5 / 8, 0x04 / 4, 0x58 / 8),
+            green: embedded_graphics::pixelcolor::Rgb565::new(0x00 / 8, 0xf3 / 4, 0xd7 / 8),
+            yellow: embedded_graphics::pixelcolor::Rgb565::new(0xfe / 8, 0xfd / 4, 0xc2 / 8),
+            blue: embedded_graphics::pixelcolor::Rgb565::new(0xa5 / 8, 0xd5 / 4, 0xfe / 8),
+            magenta: embedded_graphics::pixelcolor::Rgb565::new(0x69 / 8, 0x07 / 4, 0x59 / 8),
+            cyan: embedded_graphics::pixelcolor::Rgb565::new(0x02 / 8, 0xc3 / 4, 0xfc / 8),
         }
     }
 }
@@ -50,46 +51,43 @@ impl Default for Theme {
 //  - Might also want to play with update regions to dissociate with refresh ordering
 // - could be fun to rotate only along one color axis at a time for subtlety
 
-pub(crate) fn init_display(// rst: RST,
-    // cs: impl Peripheral<P = impl OutputPin> + 'static,
-    // sdo: impl Peripheral<P = impl OutputPin> + 'static,
+pub(crate) fn init_display<
+    RST: OutputPin,
+    DC: OutputPin,
+    SCLK: OutputPin,
+    CS: OutputPin,
+    SPIPins: esp_idf_hal::spi::SpiAnyPins,
+    SPI: Peripheral<P = SPIPins> + 'static,
+    SDO: OutputPin,
+    BL: OutputPin,
+>(
+    rst: RST,
+    dc: DC,
+    sclk: SCLK,
+    cs: CS,
+    spi: SPI,
+    sdo: SDO,
+    backlight: BL,
 ) -> Result<
     // impl DrawTarget<Color = embedded_graphics::pixelcolor::Rgb565>,
     mipidsi::Display<
         SPIInterface<
             SpiDeviceDriver<'static, SpiDriver<'static>>,
-            PinDriver<'static, esp_idf_hal::gpio::Gpio16, esp_idf_hal::gpio::Output>,
+            PinDriver<'static, DC, esp_idf_hal::gpio::Output>,
         >,
         mipidsi::models::ST7789,
-        PinDriver<'static, esp_idf_hal::gpio::Gpio23, esp_idf_hal::gpio::Output>,
+        PinDriver<'static, RST, esp_idf_hal::gpio::Output>,
     >,
     Box<dyn Error>,
->
-// where
-//     RST: Peripheral<P = dyn OutputPin> + 'static,
-{
-    // FIXME: parameterize GPIO pin mapping
-    let peripherals = Peripherals::take().unwrap();
-    let rst = PinDriver::output(peripherals.pins.gpio23)?;
-    let dc = PinDriver::output(peripherals.pins.gpio16)?;
-    let sclk = peripherals.pins.gpio18;
-    let cs = peripherals.pins.gpio5;
-    let spi = peripherals.spi2;
-    let sdo = peripherals.pins.gpio19;
-
-    // let peripherals = Peripherals::take().unwrap();
-    // let rst = PinDriver::output(rst)?;
-    // let dc = PinDriver::output(peripherals.pins.gpio16)?;
-    // let sclk = peripherals.pins.gpio18;
-    // // let cs = peripherals.pins.gpio5;
-    // let spi = peripherals.spi2;
-    // // let sdo = peripherals.pins.gpio19;
+> {
+    let rst = PinDriver::output(rst)?;
+    let dc = PinDriver::output(dc)?;
 
     let spi = SpiDriver::new(spi, sclk, sdo, None::<AnyIOPin>, &SpiDriverConfig::new())?;
     let spi = SpiDeviceDriver::new(spi, Some(cs), &Config::new())?;
     let di = SPIInterface::new(spi, dc);
 
-    let mut backlight = PinDriver::output(peripherals.pins.gpio4)?;
+    let mut backlight = PinDriver::output(backlight)?;
     backlight.set_high()?;
 
     let mut delay = Ets;
@@ -97,6 +95,7 @@ pub(crate) fn init_display(// rst: RST,
         .init(&mut delay, Some(rst))
         .map_err(|e| format!("{e:?}"))?;
     display
+        // .clipped(&Rectangle::new(Point::new(0, 80), Size::new(135, 200)))
         .clear(embedded_graphics::pixelcolor::Rgb565::BLACK)
         .map_err(|e| format!("{e:?}"))?;
 

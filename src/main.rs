@@ -1,14 +1,13 @@
-use std::error::Error;
-
 use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle};
+use embedded_graphics::primitives::PrimitiveStyleBuilder;
 use embedded_graphics::{
     mono_font::{ascii::FONT_8X13, MonoTextStyle},
     text::Text,
     Drawable,
 };
 
-use esp_idf_hal::prelude::*;
+use esp_idf_hal::gpio::PinDriver;
+use esp_idf_hal::{delay::*, prelude::*};
 
 mod display;
 mod menu;
@@ -17,22 +16,22 @@ mod util;
 pub use display::Theme;
 use menu::Menu;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> ! {
     esp_idf_sys::link_patches();
+    esp_idf_logger::init().unwrap();
 
-    // let peripherals = Peripherals::take().unwrap();
-    // let rst = peripherals.pins.gpio23;
-    // let dc = peripherals.pins.gpio16;
-    // let sclk = peripherals.pins.gpio18;
-    // let cs = peripherals.pins.gpio5;
-    // let spi = peripherals.spi2;
-    // let sdo = peripherals.pins.gpio19;
+    let peripherals = Peripherals::take().unwrap();
+    let rst = peripherals.pins.gpio23;
+    let dc = peripherals.pins.gpio16;
+    let sclk = peripherals.pins.gpio18;
+    let cs = peripherals.pins.gpio5;
+    let spi = peripherals.spi2;
+    let sdo = peripherals.pins.gpio19;
+    let backlight = peripherals.pins.gpio4;
 
-    let mut display = display::init_display(/*rst, cs, sdo*/)?;
+    let mut display = display::init_display(rst, dc, sclk, cs, spi, sdo, backlight).unwrap();
 
-    // let button = io.pins.gpio0.into_pull_up_input();
-
-    util::draw_crab(&mut display)?;
+    util::draw_crab(&mut display).unwrap();
 
     Text::new(
         "Goodnight Emma!",
@@ -50,16 +49,43 @@ fn main() -> Result<(), Box<dyn Error>> {
     // that includes roughly 1 line for bottom button labels
     // 240 - 65 = 175
     // 175 / 13 = 12ish lines for output or status
-    let menu: Menu<14, 4> = Menu::new(
+    let mut menu: Menu<14, 4> = Menu::new(
         Point::new(11, 110),
         "select",
         "next..",
         embedded_graphics::mono_font::ascii::FONT_8X13,
     );
 
-    menu.draw(&mut display);
+    let top_level = menu.new_menu("OPTIONS");
+    let scan_wifi = menu.new_menu("scan wifi");
+    let explode = menu.new_menu("explode");
+    menu.set_submenus(top_level, &[scan_wifi, explode]);
+    menu.set_current_menu(top_level);
 
-    // loop {}
+    let l_button = PinDriver::input(peripherals.pins.gpio0).unwrap();
+    let r_button = PinDriver::input(peripherals.pins.gpio35).unwrap();
 
-    Ok(())
+    // let mut i = 3;
+    loop {
+        menu.draw(&mut display);
+        FreeRtos::delay_ms(40_u32);
+
+        if l_button.is_low() {
+            menu.l_click();
+            if let Some(cur) = menu.selected {
+                if cur == scan_wifi {
+                } else if cur == explode {
+                    display
+                        .clear(embedded_graphics::pixelcolor::Rgb565::RED)
+                        .unwrap();
+                }
+            }
+            log::info!("❤️");
+        }
+
+        if r_button.is_low() {
+            menu.r_click();
+            menu.cursor_next();
+        }
+    }
 }
